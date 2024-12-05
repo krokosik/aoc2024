@@ -26,49 +26,41 @@ pub fn part2(input: &Input) -> u32 {
 
 fn safety_check(input: &Input, with_dampener: bool) -> u32 {
     input.iter().fold(0, |sum, report| {
-        if report.is_empty() {
+        if check_report_monotonous(report, false, with_dampener)
+            || check_report_monotonous(report, true, with_dampener)
+        {
             sum + 1
         } else {
-            if let Continue(_) = check_report_monotonous(report.iter(), with_dampener) {
-                sum + 1
-            } else if let Continue(_) = check_report_monotonous(report.iter().rev(), with_dampener)
-            {
-                sum + 1
-            } else {
-                sum
-            }
+            sum
         }
     })
 }
 
-fn check_report_monotonous<'a>(
-    report: impl Iterator<Item = &'a u32>,
-    with_dampener: bool,
-) -> ControlFlow<(), (Option<&'a u32>, Option<&'a u32>)> {
-    let mut dampener_available = with_dampener;
+fn check_report_monotonous(report: &Vec<u32>, ascending: bool, with_dampener: bool) -> bool {
+    let report: Vec<_> = if ascending {
+        report.clone()
+    } else {
+        report.iter().cloned().rev().collect()
+    };
 
-    report.collect::<Vec<&u32>>().iter().try_fold(
-        (None, None),
-        |(pprev, prev): (Option<&u32>, Option<&u32>), &level| {
-            println!("{:?} {:?} {:?} {}", pprev, prev, level, dampener_available);
-            match (pprev, prev, level, dampener_available) {
-                (_, Some(prev), level, _) if condition(prev, level) => {
-                    Continue((Some(prev), Some(level)))
-                }
-                (_, Some(prev), level, false) if !condition(prev, level) => Break(()),
-                (Some(pprev), _, level, true) if condition(pprev, level) => {
-                    dampener_available = false;
-                    Continue((Some(pprev), Some(level)))
-                }
-                (Some(pprev), Some(prev), _, true) if condition(pprev, prev) => {
-                    dampener_available = false;
-                    Continue((Some(pprev), Some(prev)))
-                }
-                (None, prev, level, _) => Continue((prev, Some(level))),
-                _ => Break(()),
-            }
-        },
-    )
+    report.iter().try_fold(None, check_neigbours).is_continue()
+        || (with_dampener
+            && (0..report.len()).any(|i| {
+                report[0..i]
+                    .iter()
+                    .chain(&report[i + 1..])
+                    .try_fold(None, check_neigbours)
+                    .is_continue()
+            }))
+}
+
+fn check_neigbours<'a>(prev: Option<&'a u32>, level: &'a u32) -> ControlFlow<(), Option<&'a u32>> {
+    match (prev, level) {
+        (Some(prev), level) if condition(prev, level) => Continue(Some(level)),
+        (Some(prev), level) if !condition(prev, level) => Break(()),
+        (None, level) => Continue(Some(level)),
+        _ => Break(()),
+    }
 }
 
 fn condition(prev: &u32, x: &u32) -> bool {
