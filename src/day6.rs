@@ -18,11 +18,33 @@ impl From<char> for Direction {
     }
 }
 
+impl Direction {
+    fn turn_right(&self) -> Self {
+        match self {
+            Direction::Up => Direction::Right,
+            Direction::Right => Direction::Down,
+            Direction::Down => Direction::Left,
+            Direction::Left => Direction::Up,
+        }
+    }
+}
+
 #[derive(Clone)]
 struct Guard {
     x: usize,
     y: usize,
     dir: Direction,
+}
+
+impl Guard {
+    fn step(&mut self) {
+        match self.dir {
+            Direction::Up => self.y -= 1,
+            Direction::Down => self.y += 1,
+            Direction::Left => self.x -= 1,
+            Direction::Right => self.x += 1,
+        }
+    }
 }
 
 #[derive(PartialEq, Clone)]
@@ -102,36 +124,22 @@ impl LabMap {
         let current_x = self.guard.x;
         let current_y = self.guard.y;
 
-        match self.guard.dir {
-            Direction::Up => self.guard.y -= 1,
-            Direction::Down => self.guard.y += 1,
-            Direction::Left => self.guard.x -= 1,
-            Direction::Right => self.guard.x += 1,
-        }
+        self.guard.step();
 
         if self.guard_on_obstacle() {
             self.guard.y = current_y;
             self.guard.x = current_x;
-            match self.guard.dir {
-                Direction::Up => self.guard.dir = Direction::Right,
-                Direction::Right => self.guard.dir = Direction::Down,
-                Direction::Down => self.guard.dir = Direction::Left,
-                Direction::Left => self.guard.dir = Direction::Up,
-            }
+            self.guard.dir = self.guard.dir.turn_right();
         } else {
             self.positions[current_y][current_x] = LabPosition::Patrolled;
         }
     }
 
     fn guard_on_obstacle(&self) -> bool {
-        match self
-            .positions
+        self.positions
             .get(self.guard.y)
             .and_then(|row| row.get(self.guard.x))
-        {
-            Some(LabPosition::Obstacle) => true,
-            _ => false,
-        }
+            == Some(&LabPosition::Obstacle)
     }
 
     fn guard_out_of_bounds(&self) -> bool {
@@ -156,7 +164,7 @@ fn part1(input: &LabMap) -> usize {
         .positions
         .iter()
         .flatten()
-        .filter(|pos| **pos == LabPosition::Patrolled)
+        .filter(|pos| pos == &&LabPosition::Patrolled)
         .count()
 }
 
