@@ -1,9 +1,13 @@
 use std::{
+    collections::HashSet,
+    fmt::{self, Display, Formatter},
     ops::{Add, AddAssign, Index, IndexMut},
     vec,
 };
 
-#[derive(Clone)]
+use itertools::Itertools;
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 enum Direction {
     Up,
     Down,
@@ -23,21 +27,26 @@ impl From<char> for Direction {
     }
 }
 
-impl Direction {
-    fn turn_right(&self) -> Self {
-        match self {
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+struct Pos {
+    x: isize,
+    y: isize,
+    dir: Direction,
+}
+
+impl Pos {
+    fn turn_right(&mut self) {
+        self.dir = match self.dir {
             Direction::Up => Direction::Right,
             Direction::Right => Direction::Down,
             Direction::Down => Direction::Left,
             Direction::Left => Direction::Up,
         }
     }
-}
 
-#[derive(Clone, Copy, PartialEq, Eq)]
-struct Pos {
-    x: usize,
-    y: usize,
+    fn equals_without_dir(&self, other: &Pos) -> bool {
+        self.x == other.x && self.y == other.y
+    }
 }
 
 impl<'a> Add<&'a Direction> for Pos {
@@ -48,18 +57,22 @@ impl<'a> Add<&'a Direction> for Pos {
             Direction::Up => Pos {
                 x: self.x,
                 y: self.y - 1,
+                dir: self.dir,
             },
             Direction::Down => Pos {
                 x: self.x,
                 y: self.y + 1,
+                dir: self.dir,
             },
             Direction::Left => Pos {
                 x: self.x - 1,
                 y: self.y,
+                dir: self.dir,
             },
             Direction::Right => Pos {
                 x: self.x + 1,
                 y: self.y,
+                dir: self.dir,
             },
         }
     }
@@ -76,27 +89,21 @@ impl<'a> AddAssign<&'a Direction> for Pos {
     }
 }
 
-#[derive(Clone)]
-struct Guard {
-    pos: Pos,
-    dir: Direction,
-}
-
 #[derive(PartialEq, Clone, Copy)]
-enum LabPosition {
+enum LabField {
     Clear,
     Patrolled,
     Obstacle,
     Guard,
 }
 
-impl From<char> for LabPosition {
+impl From<char> for LabField {
     fn from(c: char) -> Self {
         match c {
-            '.' => LabPosition::Clear,
-            'X' => LabPosition::Patrolled,
-            '#' => LabPosition::Obstacle,
-            '^' | 'v' | '<' | '>' => LabPosition::Guard,
+            '.' => LabField::Clear,
+            'X' => LabField::Patrolled,
+            '#' => LabField::Obstacle,
+            '^' | 'v' | '<' | '>' => LabField::Guard,
             _ => panic!("Invalid lab position"),
         }
     }
@@ -104,8 +111,8 @@ impl From<char> for LabPosition {
 
 #[derive(Clone)]
 struct LabMap {
-    positions: Vec<Vec<LabPosition>>,
-    guard: Guard,
+    fields: Vec<Vec<LabField>>,
+    guard_pos: Pos,
     width: usize,
     height: usize,
 }
@@ -116,19 +123,19 @@ impl<'a> FromIterator<&'a str> for LabMap {
 
         for (y, line) in iter.into_iter().enumerate() {
             lab_map.height += 1;
-            lab_map.positions.push(Vec::with_capacity(lab_map.width));
+            lab_map.fields.push(Vec::with_capacity(lab_map.width));
 
             line.chars()
                 .enumerate()
-                .for_each(|(x, c)| match LabPosition::from(c) {
-                    LabPosition::Guard => {
-                        lab_map.place_guard(x, y, Direction::from(c));
-                        lab_map.positions[y].push(LabPosition::Guard);
+                .for_each(|(x, c)| match LabField::from(c) {
+                    LabField::Guard => {
+                        lab_map.place_guard(x as isize, y as isize, Direction::from(c));
+                        lab_map.fields[y].push(LabField::Guard);
                     }
-                    pos => lab_map.positions[lab_map.height - 1].push(pos),
+                    pos => lab_map.fields[lab_map.height - 1].push(pos),
                 });
 
-            lab_map.width = lab_map.positions[y].len();
+            lab_map.width = lab_map.fields[y].len();
         }
 
         lab_map
@@ -136,25 +143,26 @@ impl<'a> FromIterator<&'a str> for LabMap {
 }
 
 impl Index<Pos> for LabMap {
-    type Output = LabPosition;
+    type Output = LabField;
 
     fn index(&self, pos: Pos) -> &Self::Output {
-        &self.positions[pos.y][pos.x]
+        &self.fields[pos.y as usize][pos.x as usize]
     }
 }
 
 impl IndexMut<Pos> for LabMap {
     fn index_mut(&mut self, pos: Pos) -> &mut Self::Output {
-        &mut self.positions[pos.y][pos.x]
+        &mut self.fields[pos.y as usize][pos.x as usize]
     }
 }
 
 impl LabMap {
     fn new() -> Self {
         LabMap {
-            positions: vec![],
-            guard: Guard {
-                pos: Pos { x: 0, y: 0 },
+            fields: vec![],
+            guard_pos: Pos {
+                x: 0,
+                y: 0,
                 dir: Direction::Right,
             },
             width: 0,
@@ -162,34 +170,40 @@ impl LabMap {
         }
     }
 
-    fn place_guard(&mut self, x: usize, y: usize, dir: Direction) {
-        self.guard.pos.x = x;
-        self.guard.pos.y = y;
-        self.guard.dir = dir;
+    fn place_guard(&mut self, x: isize, y: isize, dir: Direction) {
+        self.guard_pos = Pos { x, y, dir };
     }
 
     fn move_guard(&mut self) {
-        let current_pos = self.guard.pos;
+        let current_pos = self.guard_pos.clone();
 
-        self.guard.pos += &self.guard.dir;
+        self.guard_pos += &current_pos.dir;
 
-        if self.guard_on_obstacle() {
-            self.guard.pos = current_pos;
-            self.guard.dir = self.guard.dir.turn_right();
+        if !self.out_of_bounds() && self[self.guard_pos] == LabField::Obstacle {
+            self.guard_pos = current_pos;
+            self.guard_pos.turn_right();
         } else {
-            self[current_pos] = LabPosition::Patrolled;
+            self[current_pos] = LabField::Patrolled;
         }
     }
 
-    fn guard_on_obstacle(&self) -> bool {
-        self.positions
-            .get(self.guard.pos.y)
-            .and_then(|row| row.get(self.guard.pos.x))
-            == Some(&LabPosition::Obstacle)
+    fn out_of_bounds(&self) -> bool {
+        self.guard_pos.x >= self.width as isize
+            || self.guard_pos.y >= self.height as isize
+            || self.guard_pos.x < 0
+            || self.guard_pos.y < 0
     }
+}
 
-    fn out_of_bounds(&self, pos: &Pos) -> bool {
-        pos.x >= self.width || pos.y >= self.height
+impl Iterator for LabMap {
+    type Item = Pos;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.out_of_bounds() {
+            return None;
+        }
+        self.move_guard();
+        Some(self.guard_pos)
     }
 }
 
@@ -202,21 +216,49 @@ fn input_generator(input: &str) -> LabMap {
 fn part1(input: &LabMap) -> usize {
     let mut lab_map = input.clone();
 
-    while !lab_map.out_of_bounds(&lab_map.guard.pos) {
-        lab_map.move_guard();
-    }
+    while let Some(_) = lab_map.next() {}
 
     lab_map
-        .positions
+        .fields
         .iter()
         .flatten()
-        .filter(|pos| pos == &&LabPosition::Patrolled)
+        .filter(|pos| pos == &&LabField::Patrolled)
         .count()
 }
 
 #[aoc(day6, part2)]
 fn part2(input: &LabMap) -> usize {
-    0
+    let lab_map = input.clone();
+
+    let mut obstacle_placements = HashSet::<Pos>::new();
+    obstacle_placements.insert(lab_map.guard_pos);
+    let guard_route = lab_map.collect_vec();
+
+    for i in 0..guard_route.len() - 2 {
+        let mut lab_map = input.clone();
+        let mut current_guard_route = guard_route[..=i].to_vec();
+        if input[guard_route[i + 1]] == LabField::Obstacle
+            || current_guard_route
+                .iter()
+                .any(|pos| pos.equals_without_dir(&guard_route[i + 1]))
+        {
+            continue;
+        }
+        lab_map.guard_pos = guard_route[i];
+        lab_map[guard_route[i + 1]] = LabField::Obstacle;
+        lab_map.move_guard();
+
+        while !lab_map.out_of_bounds() && !current_guard_route.contains(&lab_map.guard_pos) {
+            current_guard_route.push(lab_map.guard_pos);
+            lab_map.move_guard();
+        }
+
+        if !lab_map.out_of_bounds() {
+            obstacle_placements.insert(guard_route[i + 1]);
+        }
+    }
+
+    obstacle_placements.len() - 1
 }
 
 #[cfg(test)]
@@ -228,6 +270,22 @@ mod tests {
     #[test]
     fn test_part1() {
         assert_eq!(part1(&input_generator(EXAMPLE_INPUT)), 41);
+    }
+
+    #[test]
+    fn test_pos_eq() {
+        assert_ne!(
+            Pos {
+                x: 1,
+                y: 1,
+                dir: Direction::Down
+            },
+            Pos {
+                x: 1,
+                y: 1,
+                dir: Direction::Up
+            }
+        );
     }
 
     #[test]
