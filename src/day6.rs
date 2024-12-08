@@ -168,9 +168,12 @@ fn part1(input: &LabMap) -> usize {
         .count()
 }
 
+#[cfg(test)]
 mod tests {
+    use super::*;
+
     #[test]
     fn test_part1() {
-        assert_eq!(super::part1(&super::input_generator("....#.....\n.........#\n..........\n..#.......\n.......#..\n..........\n.#..^.....\n........#.\n#.........\n......#...")), 41);
+        assert_eq!(part1(&input_generator("....#.....\n.........#\n..........\n..#.......\n.......#..\n..........\n.#..^.....\n........#.\n#.........\n......#...")), 41);
     }
 }

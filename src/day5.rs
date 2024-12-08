@@ -111,6 +111,7 @@ fn part2(input: &Input) -> u32 {
         .sum()
 }
 
+#[cfg(test)]
 mod tests {
     use super::*;
 
