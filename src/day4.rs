@@ -58,6 +58,22 @@ fn part1(input: &Input) -> usize {
         .sum()
 }
 
+fn _get_column<'a, T>(arr_2d: &'a [&'a [T]]) -> Vec<&'a T>
+where
+    T: Copy,
+{
+    (0..arr_2d.len())
+        .map(|i| {
+            arr_2d
+                .iter()
+                .flat_map(|row| row.iter().skip(i))
+                .next()
+                .unwrap()
+        })
+        .collect()
+}
+
+
 fn find_xmas(str: &String) -> usize {
     str.match_indices("XMAS").count() + str.match_indices("SAMX").count()
 }
