@@ -1,4 +1,4 @@
-use std::ops::{Add, Mul};
+use std::{fmt::{Debug, Display}, ops::{Add, Mul}, str::FromStr};
 
 type Equation = (u64, Vec<u64>);
 
@@ -18,10 +18,11 @@ fn input_generator(input: &str) -> Vec<Equation> {
         .collect()
 }
 
-fn is_valid<T>(rhs: T, lhs: T, args: &[T]) -> bool
+fn is_valid<T, F>(rhs: T, lhs: T, args: &[T], ops: &[F]) -> bool
 where
     T: PartialOrd + Copy,
     T: Add<Output = T> + Mul<Output = T>,
+    F: Fn(T, T) -> T,
 {
     if args.is_empty() && rhs == lhs {
         true
@@ -29,25 +30,8 @@ where
         false
     } else {
         let remaining = &args[1..];
-        is_valid(rhs + args[0], lhs, remaining) || is_valid(rhs * args[0], lhs, remaining)
-    }
-}
-
-fn is_valid_with_concat(rhs: u64, lhs: u64, args: &[u64]) -> bool
-// where
-//     T: PartialOrd + Copy,
-//     T: Add<Output = T> + Mul<Output = T>,
-{
-    if args.is_empty() && rhs == lhs {
-        true
-    } else if args.is_empty() || rhs > lhs {
-        false
-    } else {
-        let remaining = &args[1..];
-        let concatenated_rhs = format!("{}{}", rhs, args[0]).parse().unwrap();
-        is_valid_with_concat(concatenated_rhs, lhs, remaining)
-            || is_valid_with_concat(rhs + args[0], lhs, remaining)
-            || is_valid_with_concat(rhs * args[0], lhs, remaining)
+        ops.iter()
+            .any(|op| is_valid(op(rhs, args[0]), lhs, remaining, ops))
     }
 }
 
@@ -55,7 +39,7 @@ fn is_valid_with_concat(rhs: u64, lhs: u64, args: &[u64]) -> bool
 fn part1(input: &Vec<Equation>) -> u64 {
     input
         .iter()
-        .filter(|(lhs, args)| is_valid(0, *lhs, args))
+        .filter(|(lhs, args)| is_valid(0, *lhs, args, &vec![Add::add, Mul::mul]))
         .map(|(lhs, _)| *lhs)
         .sum()
 }
@@ -64,9 +48,17 @@ fn part1(input: &Vec<Equation>) -> u64 {
 fn part2(input: &Vec<Equation>) -> u64 {
     input
         .iter()
-        .filter(|(lhs, args)| is_valid_with_concat(0, *lhs, args))
+        .filter(|(lhs, args)| is_valid(0, *lhs, args, &vec![Add::add, Mul::mul, concat]))
         .map(|(lhs, _)| *lhs)
         .sum()
+}
+
+fn concat<T>(left: T, right: T) -> T
+where
+    T: Display + FromStr,
+    <T as FromStr>::Err: Debug
+{
+    format!("{}{}", left, right).parse().unwrap()
 }
 
 #[cfg(test)]
