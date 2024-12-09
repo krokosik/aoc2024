@@ -1,6 +1,5 @@
 use std::{
     collections::HashSet,
-    fmt::{self, Display, Formatter},
     ops::{Add, AddAssign, Index, IndexMut},
     vec,
 };
