@@ -1,83 +1,10 @@
 use std::{
     collections::VecDeque,
     fmt,
-    ops::{Add, AddAssign, Index, IndexMut, Neg},
+    ops::{Index, IndexMut},
 };
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
-enum Direction {
-    Up,
-    Down,
-    Left,
-    Right,
-}
-
-impl From<char> for Direction {
-    fn from(c: char) -> Self {
-        match c {
-            '^' => Direction::Up,
-            'v' => Direction::Down,
-            '<' => Direction::Left,
-            '>' => Direction::Right,
-            _ => panic!("Invalid direction"),
-        }
-    }
-}
-
-impl Neg for Direction {
-    type Output = Self;
-
-    fn neg(self) -> Self {
-        match self {
-            Direction::Up => Direction::Down,
-            Direction::Down => Direction::Up,
-            Direction::Left => Direction::Right,
-            Direction::Right => Direction::Left,
-        }
-    }
-}
-
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
-struct Pos {
-    x: isize,
-    y: isize,
-}
-
-impl<'a> Add<&'a Direction> for Pos {
-    type Output = Self;
-
-    fn add(self, dir: &'a Direction) -> Self {
-        match dir {
-            Direction::Up => Pos {
-                x: self.x,
-                y: self.y - 1,
-            },
-            Direction::Down => Pos {
-                x: self.x,
-                y: self.y + 1,
-            },
-            Direction::Left => Pos {
-                x: self.x - 1,
-                y: self.y,
-            },
-            Direction::Right => Pos {
-                x: self.x + 1,
-                y: self.y,
-            },
-        }
-    }
-}
-
-impl<'a> AddAssign<&'a Direction> for Pos {
-    fn add_assign(&mut self, dir: &'a Direction) {
-        match dir {
-            Direction::Up => self.y -= 1,
-            Direction::Down => self.y += 1,
-            Direction::Left => self.x -= 1,
-            Direction::Right => self.x += 1,
-        }
-    }
-}
+use crate::utils::{Direction, Pos};
 
 #[derive(PartialEq, Clone, Copy)]
 enum Field {
@@ -128,7 +55,7 @@ impl Warehouse {
         }
     }
 
-    fn place_robot(&mut self, x: isize, y: isize) {
+    fn place_robot(&mut self, x: i64, y: i64) {
         self.robot_pos = Pos { x, y };
     }
 
@@ -182,7 +109,7 @@ impl<'a> FromIterator<&'a str> for Warehouse {
                 .enumerate()
                 .for_each(|(x, c)| match Field::from(c) {
                     Field::Robot => {
-                        warehouse.place_robot(x as isize, y as isize);
+                        warehouse.place_robot(x as i64, y as i64);
                         warehouse.fields[y].push(Field::Robot);
                     }
                     pos => warehouse.fields[warehouse.height - 1].push(pos),
@@ -274,8 +201,8 @@ impl From<Warehouse> for ScaledWarehouse {
                     Field::Clear => ScaledField::Clear,
                     Field::Robot => {
                         robot_pos = Pos {
-                            x: x as isize * 2,
-                            y: y as isize,
+                            x: x as i64 * 2,
+                            y: y as i64,
                         };
                         ScaledField::Robot
                     }
@@ -348,7 +275,7 @@ impl ScaledWarehouse {
                     match self[&pos] {
                         ScaledField::Wall => return false,
                         ScaledField::BoxLeft => {
-                            for new_dir in &[&Direction::Right, dir] {
+                            for new_dir in [&Direction::Right, dir] {
                                 let new_pos = pos + new_dir;
                                 if !visited.contains(&new_pos) {
                                     stack.push_back(new_pos);
@@ -362,7 +289,7 @@ impl ScaledWarehouse {
                             }
                         }
                         ScaledField::BoxRight => {
-                            for new_dir in &[&Direction::Left, dir] {
+                            for new_dir in [&Direction::Left, dir] {
                                 let new_pos = pos + new_dir;
                                 if !visited.contains(&new_pos) {
                                     stack.push_back(new_pos);

@@ -1,45 +1,9 @@
-use std::{
-    cmp::min,
-    ops::{Add, AddAssign, Mul},
-};
+use std::cmp::min;
 
 use itertools::Itertools;
 use regex::Regex;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct Pos {
-    x: i64,
-    y: i64,
-}
-
-impl Add<Pos> for Pos {
-    type Output = Pos;
-
-    fn add(self, other: Pos) -> Pos {
-        Pos {
-            x: self.x + other.x,
-            y: self.y + other.y,
-        }
-    }
-}
-
-impl AddAssign<Pos> for Pos {
-    fn add_assign(&mut self, other: Pos) {
-        self.x += other.x;
-        self.y += other.y;
-    }
-}
-
-impl Mul<i64> for Pos {
-    type Output = Pos;
-
-    fn mul(self, other: i64) -> Pos {
-        Pos {
-            x: self.x * other,
-            y: self.y * other,
-        }
-    }
-}
+use crate::utils::Pos;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct Machine {

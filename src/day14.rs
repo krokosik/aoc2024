@@ -1,58 +1,9 @@
-use itertools::Itertools;
 use std::fs::File;
 use std::io::{self, Write};
-use std::ops::{Add, AddAssign, Mul};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct Pos {
-    x: i64,
-    y: i64,
-}
+use itertools::Itertools;
 
-impl Add<Pos> for Pos {
-    type Output = Pos;
-
-    fn add(self, other: Pos) -> Pos {
-        Pos {
-            x: self.x + other.x,
-            y: self.y + other.y,
-        }
-    }
-}
-
-impl AddAssign<Pos> for Pos {
-    fn add_assign(&mut self, other: Pos) {
-        self.x += other.x;
-        self.y += other.y;
-    }
-}
-
-impl Mul<i64> for Pos {
-    type Output = Pos;
-
-    fn mul(self, other: i64) -> Pos {
-        Pos {
-            x: self.x * other,
-            y: self.y * other,
-        }
-    }
-}
-
-impl PartialOrd for Pos {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        match self.y.partial_cmp(&other.y).unwrap() {
-            std::cmp::Ordering::Equal => self.x.partial_cmp(&other.x),
-            std::cmp::Ordering::Less => Some(std::cmp::Ordering::Greater),
-            std::cmp::Ordering::Greater => Some(std::cmp::Ordering::Less),
-        }
-    }
-}
-
-impl Ord for Pos {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.partial_cmp(other).unwrap()
-    }
-}
+use crate::utils::Pos;
 
 #[derive(Clone)]
 struct Guard {
