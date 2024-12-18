@@ -1,6 +1,4 @@
-use std::collections::{BinaryHeap, HashMap};
-use std::ops::IndexMut;
-use std::{cmp::Ordering, ops::Index};
+use std::{cmp::Ordering, collections::{BinaryHeap, HashMap}};
 
 use itertools::Itertools;
 
@@ -105,20 +103,6 @@ impl PartialOrd for State {
     }
 }
 
-impl<T> Index<Pos> for Vec<Vec<T>> {
-    type Output = T;
-
-    fn index(&self, pos: Pos) -> &Self::Output {
-        &self[pos.y as usize][pos.x as usize]
-    }
-}
-
-impl<T> IndexMut<Pos> for Vec<Vec<T>> {
-    fn index_mut(&mut self, pos: Pos) -> &mut Self::Output {
-        &mut self[pos.y as usize][pos.x as usize]
-    }
-}
-
 fn get_dist(dist: &HashMap<(Pos, Direction), u64>, pos: Pos, dir: Direction) -> u64 {
     *dist.get(&(pos, dir)).unwrap_or(&u64::MAX)
 }
@@ -215,7 +199,13 @@ fn part2(labirynth: &Vec<Vec<Field>>) -> u64 {
         .iter()
         .map(|&(prev_pos, prev_dir)| (prev_pos, prev_dir, get_dist(&dist, prev_pos, prev_dir)))
         .filter(|&(_, _, d)| d != u64::MAX)
-        .map(| (prev_pos, prev_dir, d)| (prev_pos, prev_dir, d + if prev_pos != pos { 1 } else { 1000 }))
+        .map(|(prev_pos, prev_dir, d)| {
+            (
+                prev_pos,
+                prev_dir,
+                d + if prev_pos != pos { 1 } else { 1000 },
+            )
+        })
         .collect_vec();
 
         let min_dist = prevs.iter().map(|prev| prev.2).min().unwrap();

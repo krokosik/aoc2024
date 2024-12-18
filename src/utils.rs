@@ -1,4 +1,4 @@
-use std::ops::{Add, AddAssign, Mul, Neg, Sub};
+use std::ops::{Add, AddAssign, Index, IndexMut, Mul, Neg, Sub};
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Direction {
@@ -20,6 +20,16 @@ impl Direction {
 
     pub fn turn_left(self) -> Self {
         -self.turn_right()
+    }
+
+    pub fn into_iter() -> core::array::IntoIter<Direction, 4> {
+        [
+            Direction::Up,
+            Direction::Right,
+            Direction::Down,
+            Direction::Left,
+        ]
+        .into_iter()
     }
 }
 
@@ -153,5 +163,19 @@ impl PartialOrd for Pos {
 impl Ord for Pos {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.partial_cmp(other).unwrap()
+    }
+}
+
+impl<T> Index<Pos> for Vec<Vec<T>> {
+    type Output = T;
+
+    fn index(&self, pos: Pos) -> &Self::Output {
+        &self[pos.y as usize][pos.x as usize]
+    }
+}
+
+impl<T> IndexMut<Pos> for Vec<Vec<T>> {
+    fn index_mut(&mut self, pos: Pos) -> &mut Self::Output {
+        &mut self[pos.y as usize][pos.x as usize]
     }
 }
