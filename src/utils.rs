@@ -1,4 +1,4 @@
-use std::ops::{Add, AddAssign, Mul, Neg};
+use std::ops::{Add, AddAssign, Mul, Neg, Sub};
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Direction {
@@ -79,6 +79,14 @@ impl<'a> Add<&'a Direction> for Pos {
     }
 }
 
+impl Add<Direction> for Pos {
+    type Output = Self;
+
+    fn add(self, dir: Direction) -> Self {
+        self + &dir
+    }
+}
+
 impl<'a> AddAssign<&'a Direction> for Pos {
     fn add_assign(&mut self, dir: &'a Direction) {
         match dir {
@@ -87,6 +95,20 @@ impl<'a> AddAssign<&'a Direction> for Pos {
             Direction::Left => self.x -= 1,
             Direction::Right => self.x += 1,
         }
+    }
+}
+
+impl AddAssign<Direction> for Pos {
+    fn add_assign(&mut self, dir: Direction) {
+        *self += &dir;
+    }
+}
+
+impl Sub<Direction> for Pos {
+    type Output = Self;
+
+    fn sub(self, dir: Direction) -> Self {
+        self + -dir
     }
 }
 
