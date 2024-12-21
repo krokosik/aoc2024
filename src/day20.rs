@@ -35,10 +35,14 @@ fn get_path(race_track: &Vec<Vec<char>>) -> Vec<Pos> {
     path
 }
 
-#[aoc(day20, part1)]
-fn part1(input: &str) -> usize {
-    let race_track = input.lines().map(|line| line.chars().collect()).collect();
+fn get_neighbours_in_manhattan_range(pos: Pos, range: i64) -> impl Iterator<Item = Pos> {
+    (-range..=range)
+        .cartesian_product(-range..=range)
+        .filter(move |(i, j)| i.abs() + j.abs() <= range)
+        .map(move |(i, j)| pos + Pos::from((i, j)))
+}
 
+fn get_possible_cheat_gains(race_track: &Vec<Vec<char>>, min_gain: usize, range: i64) -> usize {
     let path = get_path(&race_track);
 
     let costs = path
@@ -48,15 +52,35 @@ fn part1(input: &str) -> usize {
         .collect::<HashMap<_, _>>();
 
     path.iter()
+        .copied()
         .enumerate()
         .flat_map(|(i, pos)| {
-            Direction::into_iter()
-                .map(|dir| costs.get(&(*pos + dir + dir)).unwrap_or(&0))
-                .map(move |&cost| cost.checked_sub(i + 2).unwrap_or(0))
-                // .filter(|&cost| cost >= 100)
+            let costs = &costs;
+            get_neighbours_in_manhattan_range(pos, range)
+                .filter_map(move |next| {
+                    costs.get(&next).and_then(|&cost| {
+                        cost.checked_sub(i + pos.manhattan_distance(next) as usize)
+                    })
+                })
                 .filter(|&cost| cost > 0)
+                .filter(|&cost| cost >= min_gain)
         })
         .count()
+}
+
+#[aoc_generator(day20)]
+fn input_generator(input: &str) -> Vec<Vec<char>> {
+    input.lines().map(|line| line.chars().collect()).collect()
+}
+
+#[aoc(day20, part1)]
+fn part1(race_track: &Vec<Vec<char>>) -> usize {
+    get_possible_cheat_gains(race_track, 100, 2)
+}
+
+#[aoc(day20, part2)]
+fn part2(race_track: &Vec<Vec<char>>) -> usize {
+    get_possible_cheat_gains(race_track, 100, 20)
 }
 
 #[cfg(test)]
@@ -81,6 +105,17 @@ mod tests {
 
     #[test]
     fn test_part1() {
-        assert_eq!(part1(EXAMPLE_INPUT), 44);
+        assert_eq!(
+            get_possible_cheat_gains(&input_generator(EXAMPLE_INPUT), 0, 2),
+            44
+        );
+    }
+
+    #[test]
+    fn test_part2() {
+        assert_eq!(
+            get_possible_cheat_gains(&input_generator(EXAMPLE_INPUT), 50, 20),
+            285
+        );
     }
 }

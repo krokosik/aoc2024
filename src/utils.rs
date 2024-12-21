@@ -64,6 +64,18 @@ pub struct Pos {
     pub y: i64,
 }
 
+impl Pos {
+    pub fn manhattan_distance(&self, other: Pos) -> u64 {
+        ((self.x - other.x).abs() + (self.y - other.y).abs()) as u64
+    }
+}
+
+impl From<(i64, i64)> for Pos {
+    fn from((x, y): (i64, i64)) -> Self {
+        Pos { x, y }
+    }
+}
+
 impl<'a> Add<&'a Direction> for Pos {
     type Output = Self;
 
