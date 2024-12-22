@@ -1,3 +1,7 @@
+use std::collections::HashMap;
+
+use itertools::Itertools;
+
 const MODULUS: u64 = 16777215;
 const N: usize = 2000;
 
@@ -13,11 +17,15 @@ struct PseudoRandom {
 }
 
 impl Iterator for PseudoRandom {
-    type Item = u64;
+    type Item = (u64, u8, i8);
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.secret = evolve_secret(self.secret);
-        Some(self.secret)
+        let secret = self.secret;
+        let price = secret % 10;
+        let new_secret = evolve_secret(secret);
+        let new_price = new_secret % 10;
+        self.secret = new_secret;
+        Some((self.secret, new_price as u8, new_price as i8 - price as i8))
     }
 }
 
@@ -28,8 +36,42 @@ fn part1(input: &str) -> u64 {
         .map(|line| PseudoRandom {
             secret: line.parse().unwrap(),
         })
-        .map(|mut prng| prng.nth(N - 1).unwrap())
+        .map(|mut prng| prng.nth(N - 1).unwrap().0)
         .sum()
+}
+
+#[aoc(day22, part2)]
+fn part2(input: &str) -> u64 {
+    let price_lists = input
+        .lines()
+        .map(|line| {
+            let secret = line.parse().unwrap();
+            let prng = PseudoRandom { secret };
+            let mut sequence_price = HashMap::new();
+
+            for window in prng.take(N).collect_vec().windows(4) {
+                let delta_sequence = window.iter().map(|(_, _, delta)| *delta).collect_vec();
+                let price = window[3].1;
+                sequence_price.entry(delta_sequence).or_insert(price);
+            }
+
+            sequence_price
+        })
+        .collect_vec();
+
+    price_lists
+        .iter()
+        .flat_map(|price_list| price_list.keys())
+        .sorted()
+        .dedup()
+        .map(|sequence| {
+            price_lists
+                .iter()
+                .map(|price_list| *price_list.get(sequence).unwrap_or(&0) as u64)
+                .sum()
+        })
+        .max()
+        .unwrap()
 }
 
 #[cfg(test)]
@@ -46,7 +88,7 @@ mod tests {
                 5908254,
             ],
         ) {
-            assert_eq!(secret, expected);
+            assert_eq!(secret.0, expected);
         }
     }
 
@@ -60,6 +102,19 @@ mod tests {
 2024"
             ),
             37327623
+        );
+    }
+
+    #[test]
+    fn part2_example() {
+        assert_eq!(
+            part2(
+                "1
+2
+3
+2024"
+            ),
+            23
         );
     }
 }
