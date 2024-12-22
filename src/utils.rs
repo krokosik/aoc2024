@@ -45,6 +45,17 @@ impl From<char> for Direction {
     }
 }
 
+impl From<Direction> for char {
+    fn from(dir: Direction) -> Self {
+        match dir {
+            Direction::Up => '^',
+            Direction::Down => 'v',
+            Direction::Left => '<',
+            Direction::Right => '>',
+        }
+    }
+}
+
 impl Neg for Direction {
     type Output = Self;
 
