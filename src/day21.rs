@@ -1,6 +1,6 @@
-use std::collections::{HashSet, VecDeque};
+use std::{cmp::max, collections::VecDeque, iter::once};
 
-use itertools::Itertools;
+use itertools::{repeat_n, Itertools};
 
 use crate::utils::{Direction, Pos};
 
@@ -32,11 +32,34 @@ impl Keypad {
                 vec![None, Some('<'), Some('v'), Some('>'), None],
                 vec![None; 5],
             ],
-            pos: Pos { x: 1, y: 2 },
+            pos: Pos { x: 3, y: 1 },
         }
     }
 
-    fn sequences_to(&mut self, target: char) -> Vec<Vec<char>> {
+    fn sequences_to_simplified(&mut self, target: char) -> Vec<char> {
+        let start_pos = self.pos;
+        let target_pos = self
+            .keys
+            .iter()
+            .flatten()
+            .position(|&c| c == Some(target))
+            .unwrap();
+        let target_pos = Pos {
+            x: target_pos as i64 % 5,
+            y: target_pos as i64 / 5,
+        };
+        self.pos = target_pos;
+
+        let dx = target_pos.x - start_pos.x;
+        let dy = target_pos.y - start_pos.y;
+
+        repeat_n(if dx > 0 { '>' } else { '<' }, dx.abs() as usize)
+            .chain(repeat_n(if dy > 0 { 'v' } else { '^' }, dy.abs() as usize))
+            .chain(once('A'))
+            .collect()
+    }
+
+    fn sequences_to(&mut self, target: char) -> Vec<char> {
         let mut queue = VecDeque::new();
         let mut paths = vec![];
 
@@ -66,32 +89,55 @@ impl Keypad {
             }
         }
 
+        let min_deduped = paths
+            .iter()
+            .map(|path| path.iter().dedup().dedup().count())
+            .min()
+            .unwrap();
         paths
+            .into_iter()
+            .filter(|path| path.iter().dedup().dedup().count() == min_deduped)
+            .next()
+            .unwrap()
     }
-}
-
-#[aoc_generator(day21)]
-fn input_generator(input: &str) -> Vec<Vec<char>> {
-    input.lines().map(|line| line.chars().collect()).collect()
 }
 
 fn get_shortest_sequence(code: &Vec<char>, n_dir_keypads: usize) -> Vec<char> {
     let mut keypad_numeric = Keypad::numeric();
 
-    let first_sequence_set = code
+    let mut first_sequence_set = code
         .iter()
         .flat_map(|&c| keypad_numeric.sequences_to(c))
         .collect_vec();
 
-    println!("{:?}", first_sequence_set);
+    for _ in 0..n_dir_keypads {
+        let mut keypad_directional = Keypad::directional();
+        first_sequence_set = first_sequence_set
+            .iter()
+            .flat_map(|&c| keypad_directional.sequences_to_simplified(c))
+            .collect_vec();
+    }
 
-    first_sequence_set[0].clone()
+    first_sequence_set
 }
 
 #[aoc(day21, part1)]
-fn part1(codes: &Vec<Vec<char>>) -> u64 {
-    println!("{:?}", get_shortest_sequence(&codes[0], 1));
-    0
+fn part1(input: &str) -> u64 {
+    input
+        .lines()
+        .map(|line| {
+            line[0..3].parse::<u64>().unwrap()
+                * get_shortest_sequence(&line.chars().collect(), 2).len() as u64
+        })
+        .sum()
+}
+
+#[aoc(day21, part2)]
+fn part2(input: &str) -> u64 {
+    input
+        .lines()
+        .map(|line| get_shortest_sequence(&line.chars().collect(), 25).len() as u64)
+        .sum()
 }
 
 #[cfg(test)]
@@ -100,6 +146,10 @@ mod tests {
 
     #[test]
     fn test_part1() {
-        assert_eq!(part1(&input_generator("029A")), 1);
+        assert_eq!(part1("029A"), 68 * 29);
+        assert_eq!(part1("980A"), 60 * 980);
+        assert_eq!(part1("179A"), 68 * 179);
+        assert_eq!(part1("456A"), 64 * 456);
+        assert_eq!(part1("379A"), 64 * 379);
     }
 }

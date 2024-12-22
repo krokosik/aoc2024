@@ -24,10 +24,10 @@ impl Direction {
 
     pub fn into_iter() -> core::array::IntoIter<Direction, 4> {
         [
-            Direction::Up,
-            Direction::Right,
-            Direction::Down,
             Direction::Left,
+            Direction::Right,
+            Direction::Up,
+            Direction::Down,
         ]
         .into_iter()
     }
