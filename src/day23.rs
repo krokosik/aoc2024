@@ -52,6 +52,39 @@ fn part1(input: &str) -> usize {
         / 6
 }
 
+fn find_largest_clique<'a>(lan_graph: &'a Graph<'a>) -> Vec<&'a str> {
+    let (nodes, edges) = lan_graph;
+    let mut clique = Vec::new();
+
+    for &node1 in nodes {
+        let mut clique_candidate = vec![node1];
+
+        for &node2 in nodes {
+            if clique_candidate.iter().all(|&node| edges.contains(&(node, node2))) {
+                clique_candidate.push(node2);
+            }
+        }
+
+        if clique_candidate.len() > clique.len() {
+            clique = clique_candidate;
+        }
+    }
+
+    clique
+}
+
+#[aoc(day23, part2)]
+fn part2(input: &str) -> String {
+    let lan_graph = input_generator(input);
+    let clique = find_largest_clique(&lan_graph);
+
+    // for node in clique.iter() {
+    //     println!("{}", node);
+    // }
+
+    clique.iter().sorted().join(",")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -92,5 +125,10 @@ td-yn";
     #[test]
     fn test_part1() {
         assert_eq!(part1(EXAMPLE_INPUT), 7);
+    }
+
+    #[test]
+    fn test_part2() {
+        assert_eq!(part2(EXAMPLE_INPUT), "co,de,ka,ta");
     }
 }
