@@ -1,4 +1,4 @@
-use std::{cmp::max, collections::VecDeque, iter::once};
+use std::{collections::VecDeque, iter::once};
 
 use itertools::{repeat_n, Itertools};
 
