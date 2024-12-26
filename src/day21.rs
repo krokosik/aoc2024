@@ -1,13 +1,18 @@
-use std::{collections::VecDeque, iter::once};
+use std::{
+    collections::HashMap,
+    iter::once,
+};
 
 use itertools::{repeat_n, Itertools};
 
-use crate::utils::{Direction, Pos};
+use crate::utils::Pos;
 
 struct Keypad {
     keys: Vec<Vec<Option<char>>>,
     pos: Pos,
 }
+
+type FrequencyTable = HashMap<(char, char), u64>;
 
 impl Keypad {
     fn numeric() -> Self {
@@ -36,69 +41,39 @@ impl Keypad {
         }
     }
 
-    fn sequences_to_simplified(&mut self, target: char) -> Vec<char> {
-        let start_pos = self.pos;
-        let target_pos = self
+    fn get_coordinates(&self, c: char) -> Pos {
+        let pos = self
             .keys
             .iter()
             .flatten()
-            .position(|&c| c == Some(target))
+            .position(|&key| key == Some(c))
             .unwrap();
-        let target_pos = Pos {
-            x: target_pos as i64 % 5,
-            y: target_pos as i64 / 5,
-        };
+        Pos {
+            x: pos as i64 % self.keys[0].len() as i64,
+            y: pos as i64 / self.keys[0].len() as i64,
+        }
+    }
+
+    fn sequences_to(&mut self, target: char) -> Vec<char> {
+        let start_pos = self.pos;
+        let target_pos = self.get_coordinates(target);
         self.pos = target_pos;
 
         let dx = target_pos.x - start_pos.x;
         let dy = target_pos.y - start_pos.y;
 
-        repeat_n(if dx > 0 { '>' } else { '<' }, dx.abs() as usize)
-            .chain(repeat_n(if dy > 0 { 'v' } else { '^' }, dy.abs() as usize))
-            .chain(once('A'))
-            .collect()
-    }
-
-    fn sequences_to(&mut self, target: char) -> Vec<char> {
-        let mut queue = VecDeque::new();
-        let mut paths = vec![];
-
-        queue.push_back((self.pos, vec![], vec![self.pos]));
-
-        while let Some((current_pos, path, ref mut visited)) = queue.pop_front() {
-            if self.keys[current_pos] == Some(target) {
-                let mut path = path;
-                path.push('A');
-                self.pos = current_pos;
-                paths.push(path);
-                continue;
-            }
-
-            if !paths.is_empty() && path.len() + 2 > paths[0].len() {
-                continue;
-            }
-
-            for dir in Direction::into_iter() {
-                let next = current_pos + dir;
-                if !visited.contains(&next) && self.keys[next].is_some() {
-                    let mut new_path = path.clone();
-                    new_path.push(dir.into());
-                    visited.push(next);
-                    queue.push_back((next, new_path, visited.clone()));
-                }
-            }
-        }
-
-        let min_deduped = paths
-            .iter()
-            .map(|path| path.iter().dedup().dedup().count())
-            .min()
-            .unwrap();
-        paths
-            .into_iter()
-            .filter(|path| path.iter().dedup().dedup().count() == min_deduped)
-            .next()
-            .unwrap()
+        let h = repeat_n(if dx > 0 { '>' } else { '<' }, dx.abs() as usize);
+        let v = repeat_n(if dy > 0 { 'v' } else { '^' }, dy.abs() as usize);
+        let a = once('A');
+        (if dx > 0 && !self.keys[target_pos.y as usize][start_pos.x as usize].is_none() {
+            v.chain(h)
+        } else if !self.keys[start_pos.y as usize][target_pos.x as usize].is_none() {
+            h.chain(v)
+        } else {
+            v.chain(h)
+        })
+        .chain(a)
+        .collect()
     }
 }
 
@@ -114,14 +89,74 @@ fn get_shortest_sequence(code: &Vec<char>, n_dir_keypads: usize) -> Vec<char> {
         let mut keypad_directional = Keypad::directional();
         first_sequence_set = first_sequence_set
             .iter()
-            .flat_map(|&c| keypad_directional.sequences_to_simplified(c))
+            .flat_map(|&c| keypad_directional.sequences_to(c))
             .collect_vec();
     }
 
     first_sequence_set
 }
 
-#[aoc(day21, part1)]
+fn update_frequency_table(table: &mut FrequencyTable) -> FrequencyTable {
+    let mut new_table = HashMap::new();
+
+    for &(start, target) in table.keys() {
+        let moves = get_optimal_directional_path(start, target);
+        let mut prev = 'A';
+        for &m in &moves {
+            *new_table.entry((prev, m)).or_insert(0) += table[&(start, target)];
+            prev = m;
+        }
+    }
+
+    new_table
+}
+
+fn get_optimal_directional_path(start: char, target: char) -> Vec<char> {
+    (match (start, target) {
+        (start, target) if start == target => "",
+        ('A', '^') | ('>', 'v') | ('v', '<') => "<",
+        ('A', '>') | ('^', 'v') => "v",
+        ('A', 'v') => "<v",
+        ('A', '<') => "v<<",
+        ('^', 'A') | ('<', 'v') | ('v', '>') => ">",
+        ('>', 'A') => "^",
+        ('<', 'A') => ">>^",
+        ('v', 'A') => "^>",
+        ('^', '>') => "v>",
+        ('<', '^') => ">^",
+        ('>', '^') => "<^",
+        ('<', '>') => ">>",
+        ('>', '<') => "<<",
+        ('^', '<') => "v<",
+        _ => unreachable!(),
+    })
+    .chars()
+    .chain(once('A'))
+    .collect()
+}
+
+fn use_freq_tables(input: &str, n: usize) -> u64 {
+    let mut keypad_numeric = Keypad::numeric();
+    let sequences = input
+        .lines()
+        .flat_map(|line| line.chars())
+        .flat_map(|c| keypad_numeric.sequences_to(c))
+        .collect_vec();
+
+    let mut freq_table = HashMap::new();
+
+    freq_table.insert(('A', sequences[0]), 1);
+    for pair in sequences.windows(2) {
+        *freq_table.entry((pair[0], pair[1])).or_insert(0) += 1;
+    }
+
+    let freq_table = (0..n).fold(freq_table, |mut table, _| {
+        update_frequency_table(&mut table)
+    });
+    freq_table.values().sum()
+}
+
+#[aoc(day21, part1, loop)]
 fn part1(input: &str) -> u64 {
     input
         .lines()
@@ -132,11 +167,19 @@ fn part1(input: &str) -> u64 {
         .sum()
 }
 
+#[aoc(day21, part1, freq_tables)]
+fn part12(input: &str) -> u64 {
+    input
+        .lines()
+        .map(|line| line[0..3].parse::<u64>().unwrap() * use_freq_tables(line, 2) as u64)
+        .sum()
+}
+
 #[aoc(day21, part2)]
 fn part2(input: &str) -> u64 {
     input
         .lines()
-        .map(|line| get_shortest_sequence(&line.chars().collect(), 25).len() as u64)
+        .map(|line| line[0..3].parse::<u64>().unwrap() * use_freq_tables(line, 25) as u64)
         .sum()
 }
 
