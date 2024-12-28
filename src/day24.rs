@@ -1,7 +1,10 @@
 use std::collections::{HashMap, VecDeque};
 
+use itertools::Itertools;
+
 type Wires<'a> = HashMap<&'a str, bool>;
 
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
 enum GateType {
     AND,
     OR,
@@ -19,6 +22,7 @@ impl From<&str> for GateType {
     }
 }
 
+#[derive(Debug, PartialEq, Eq)]
 struct Gate<'a> {
     input1: &'a str,
     input2: &'a str,
@@ -27,6 +31,17 @@ struct Gate<'a> {
 }
 
 type GateQueue<'a> = VecDeque<Gate<'a>>;
+
+fn gate_by_output<'a>(gates: &'a GateQueue<'a>, output: &str) -> Option<&'a Gate<'a>> {
+    gates.iter().find(|gate| gate.output == output)
+}
+
+fn gate_by_inputs<'a>(gates: &'a GateQueue<'a>, inputs: &(&str, &str)) -> Option<&'a Gate<'a>> {
+    gates.iter().find(|gate| {
+        (gate.input1 == inputs.0 && gate.input2 == inputs.1)
+            || (gate.input1 == inputs.1 && gate.input2 == inputs.0)
+    })
+}
 
 fn input_generator<'a>(input: &'a str) -> (Wires<'a>, GateQueue<'a>) {
     let mut wires = HashMap::new();
@@ -111,6 +126,60 @@ fn part1(input: &str) -> u64 {
     wires_to_numbers(&wires, 'z')
 }
 
+#[aoc(day24, part2)]
+fn part2(input: &str) -> String {
+    let (wires, gates) = input_generator(input);
+
+    let mut output_swaps = vec![];
+
+    let z_len = wires.keys().filter(|&&key| key.starts_with('x')).count();
+
+    for &Gate {
+        input1,
+        input2,
+        output,
+        gate_type,
+    } in &gates
+    {
+        let (input1, input2) = [input1, input2]
+            .into_iter()
+            .sorted()
+            .collect_tuple()
+            .unwrap();
+        if output.starts_with("z") && !output.ends_with(z_len.to_string().as_str()) {
+            if gate_type != GateType::XOR {
+                output_swaps.push(output);
+            }
+        } else if !(input1.starts_with("x") || input2.starts_with("y")) {
+            if gate_type == GateType::XOR {
+                output_swaps.push(output);
+            }
+        } else if input1.starts_with("x") && input2.starts_with("y")
+            || input1.starts_with("y") && input2.starts_with("x")
+        {
+            if input1.ends_with("00") || input2.ends_with("00") {
+                continue;
+            }
+
+            let mut ops = vec![];
+
+            for other_gate in &gates {
+                if other_gate.input1 == output || other_gate.input2 == output {
+                    ops.push(other_gate.gate_type);
+                }
+            }
+
+            if gate_type == GateType::XOR && !ops.contains(&GateType::XOR)
+                || gate_type == GateType::AND && !ops.contains(&GateType::OR)
+            {
+                output_swaps.push(output);
+            }
+        }
+    }
+
+    output_swaps.iter().sorted().join(",")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -178,5 +247,33 @@ tnw OR pbm -> gnj";
     fn test_part1() {
         assert_eq!(part1(SMALL_INPUT), 0b100);
         assert_eq!(part1(EXAMPLE_INPUT), 0b0011111101000);
+    }
+
+    #[test]
+    fn test_part2() {
+        assert_eq!(
+            part2(
+                "x00: 0
+x01: 1
+x02: 0
+x03: 1
+x04: 0
+x05: 1
+y00: 0
+y01: 0
+y02: 1
+y03: 1
+y04: 0
+y05: 1
+
+x00 AND y00 -> z05
+x01 AND y01 -> z02
+x02 AND y02 -> z01
+x03 AND y03 -> z03
+x04 AND y04 -> z04
+x05 AND y05 -> z00"
+            ),
+            "z00,z01,z02,z05"
+        );
     }
 }
