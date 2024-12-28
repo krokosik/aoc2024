@@ -32,17 +32,6 @@ struct Gate<'a> {
 
 type GateQueue<'a> = VecDeque<Gate<'a>>;
 
-fn gate_by_output<'a>(gates: &'a GateQueue<'a>, output: &str) -> Option<&'a Gate<'a>> {
-    gates.iter().find(|gate| gate.output == output)
-}
-
-fn gate_by_inputs<'a>(gates: &'a GateQueue<'a>, inputs: &(&str, &str)) -> Option<&'a Gate<'a>> {
-    gates.iter().find(|gate| {
-        (gate.input1 == inputs.0 && gate.input2 == inputs.1)
-            || (gate.input1 == inputs.1 && gate.input2 == inputs.0)
-    })
-}
-
 fn input_generator<'a>(input: &'a str) -> (Wires<'a>, GateQueue<'a>) {
     let mut wires = HashMap::new();
     let mut gates = VecDeque::new();
